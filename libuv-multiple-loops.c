@@ -73,18 +73,27 @@ static void __assertf(int expr, const char *fmt, ...)
 #define assert_lt(v1, v2, fmt)   __assert_cmp(v1, v2, fmt, <)
 #define assert_gt(v1, v2, fmt)   __assert_cmp(v1, v2, fmt, >)
 
-static void timer_callback(uv_timer_t *handle)
+/* bclr stands for byte clear */
+#define bclr(ptr, size)          (void) memset(ptr, 0, size)
+#define bclr_sizeof(ptr)         bclr(ptr, sizeof(*(ptr)))
+
+typedef struct {
+    uv_loop_t loop;
+    uv_async_t async;
+} loop_async_t;
+
+static void timer_cb(uv_timer_t *handle)
 {
-    uv_async_t *other_thread_notifier = (uv_async_t *) handle->data;
-    assert_nonnull(other_thread_notifier);
+    loop_async_t *la = (loop_async_t *) handle->data;
+    assert_nonnull(la);
     LOG("Timer expired, notifying other thread");
 
     /* Notify the other thread */
-    int e = uv_async_send(other_thread_notifier);
+    int e = uv_async_send(&la->async);
     assert_eq(e, 0, "%d");
 }
 
-static void child_thread(void *data)
+static void thread_entry(void *data)
 {
     LOG("(Consumer thread will start event loop)");
 
@@ -95,18 +104,14 @@ static void child_thread(void *data)
     LOG("(Consumer event loop done)");
 }
 
-static void consumer_notify(uv_async_t *handle)
+static void async_cb(uv_async_t *handle)
 {
     LOG("(Got notify from the other thread  fd: %d data: %p)\n",
             handle->loop->backend_fd, handle->data);
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
-    UNUSED(argc, argv);
-
-    uv_thread_t thread;
-    uv_async_t async;
     int e;
 
 #ifdef DEBUG
@@ -116,14 +121,19 @@ int main(int argc, char *argv[])
     LOG("Set stdout unbuffered");
 #endif
 
-    /* Create and set up the consumer thread */
-    uv_loop_t *thread_loop = uv_loop_new();
-    (void) memset(&async, 0, sizeof(async));
-    e = uv_async_init(thread_loop, &async, consumer_notify);
+    loop_async_t la;
+
+    e = uv_loop_init(&la.loop);
     assert_eq(e, 0, "%d");
-    e = uv_thread_create(&thread, child_thread, thread_loop);
+    LOG("thread loop fd: %d", la.loop.backend_fd);
+
+    bclr_sizeof(&la.async);
+    e = uv_async_init(&la.loop, &la.async, async_cb);
     assert_eq(e, 0, "%d");
-    LOG("thread loop fd: %d", thread_loop->backend_fd);
+
+    uv_thread_t thread;
+    e = uv_thread_create(&thread, thread_entry, &la.loop);
+    assert_eq(e, 0, "%d");
 
     /* Main thread will run default loop */
     uv_loop_t *main_loop = uv_default_loop();
@@ -133,8 +143,8 @@ int main(int argc, char *argv[])
     LOG("main loop fd: %d", main_loop->backend_fd);
 
     /* Timer callback needs async so it knows where to send messages */
-    timer_req.data = &async;
-    e = uv_timer_start(&timer_req, timer_callback, 0, 5000);
+    timer_req.data = &la;
+    e = uv_timer_start(&timer_req, timer_cb, 0, 5000);
     assert_eq(e, 0, "%d");
 
     LOG("Starting main loop\n");
