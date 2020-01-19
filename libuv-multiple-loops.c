@@ -82,15 +82,31 @@ typedef struct {
     uv_async_t async;
 } loop_async_t;
 
+static void work_cb(uv_work_t* req)
+{
+    assert_nonnull(req);
+    LOG("threadpoll called  %#lx", uv_thread_self());
+}
+
 static void timer_cb(uv_timer_t *handle)
 {
+    int e;
+
     loop_async_t *la = (loop_async_t *) handle->data;
     assert_nonnull(la);
     LOG("Timer expired, notifying other thread");
 
-    /* Notify the other thread */
-    int e = uv_async_send(&la->async);
+    uv_work_t req;
+    bclr_sizeof(&req);
+    req.data = NULL;
+    e = uv_queue_work(&la->loop, &req, work_cb, NULL);
     assert_eq(e, 0, "%d");
+
+#if 0
+    /* Notify the other thread */
+    e = uv_async_send(&la->async);
+    assert_eq(e, 0, "%d");
+#endif
 }
 
 static void thread_entry(void *data)
@@ -128,7 +144,8 @@ int main(void)
     LOG("thread loop fd: %d", la.loop.backend_fd);
 
     bclr_sizeof(&la.async);
-    e = uv_async_init(&la.loop, &la.async, async_cb);
+    //e = uv_async_init(&la.loop, &la.async, async_cb);
+    e = uv_async_init(&la.loop, &la.async, NULL);
     assert_eq(e, 0, "%d");
 
     uv_thread_t thread;
@@ -144,7 +161,7 @@ int main(void)
 
     /* Timer callback needs async so it knows where to send messages */
     timer_req.data = &la;
-    e = uv_timer_start(&timer_req, timer_cb, 0, 5000);
+    e = uv_timer_start(&timer_req, timer_cb, 0, 1000);
     assert_eq(e, 0, "%d");
 
     LOG("Starting main loop\n");
