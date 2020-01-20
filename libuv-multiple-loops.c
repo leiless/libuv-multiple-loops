@@ -70,6 +70,8 @@ int main(void)
     assert_eq(e, 0);
     LOG("Set stdout unbuffered");
 
+    LOG("libuv version: %s", uv_version_string());
+
     loop_async_t la;
 
     e = uv_loop_init(&la.loop);
