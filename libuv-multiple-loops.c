@@ -41,7 +41,7 @@ static void timer_cb(uv_timer_t *handle)
 
     loop_async_t *la = (loop_async_t *) handle->data;
     assert_nonnull(la);
-    LOG("Timer expired, notifying other thread");
+    LOG("Timer expired, enqueue a work.");
 
     uv_work_t req;
     (void) memset(&req, 0, sizeof(req));
@@ -52,13 +52,13 @@ static void timer_cb(uv_timer_t *handle)
 
 static void thread_entry(void *data)
 {
-    LOG("(Consumer thread will start event loop)");
+    LOG("(Thread will start event loop)");
 
     uv_loop_t *thread_loop = (uv_loop_t *) data;
-    int e= uv_run(thread_loop, UV_RUN_DEFAULT);
+    int e = uv_run(thread_loop, UV_RUN_DEFAULT);
     assert_eq(e, 0);
 
-    LOG("(Consumer event loop done)");
+    LOG("(Thread event loop done)");
 }
 
 int main(void)
