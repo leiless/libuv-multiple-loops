@@ -103,7 +103,7 @@ static void thread_entry(void *data)
     LOG("(Consumer thread going to run event loop)");
 
     uv_loop_t *thread_loop = (uv_loop_t *) data;
-    int e= uv_run(thread_loop, UV_RUN_DEFAULT);
+    int e = uv_run(thread_loop, UV_RUN_DEFAULT);
     assert_eq(e, 0, "%d");
 
     LOG("(Consumer event loop done)");
