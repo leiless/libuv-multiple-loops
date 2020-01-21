@@ -118,22 +118,24 @@ static void work_cb(uv_work_t* req)
 {
     assert_nonnull(req);
     LOG("<New thread from threadpool  rand: %ld>", random() % 100000);
-
-    /* see: libuv/src/unix/thread.c */
-    pthread_exit(NULL);
 }
 
 static void done_work_cb(uv_work_t* req, int status)
 {
-    UNUSED(req);
-    LOG("done work called  status: %d", status);
+    assert_nonnull(req);
+    free(req);
+    LOG("(done work called  status: %d)\n", status);
 }
 
 static void async_cb(uv_async_t *handle)
 {
     int e;
     loop_async_t *la;
-    uv_work_t req;
+    uv_work_t *req;
+
+    req = malloc(sizeof(*req));
+    assert_nonnull(req);
+    bclr_sizeof(req);
 
     LOG("(Going to enqueue a work)");
 
@@ -141,8 +143,7 @@ static void async_cb(uv_async_t *handle)
     la = (loop_async_t *) handle->data;
     assert_nonnull(la);
 
-    bclr_sizeof(&req);
-    e = uv_queue_work(&la->loop, &req, work_cb, done_work_cb);
+    e = uv_queue_work(&la->loop, req, work_cb, done_work_cb);
     assert_eq(e, 0, "%d");
 
     LOG("(Work enqueued)");
