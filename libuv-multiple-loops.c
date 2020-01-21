@@ -82,36 +82,25 @@ typedef struct {
     uv_async_t async;
 } loop_async_t;
 
-static void work_cb(uv_work_t* req)
-{
-    assert_nonnull(req);
-    LOG("threadpoll called  %#lx", uv_thread_self());
-}
-
 static void timer_cb(uv_timer_t *handle)
 {
     int e;
+    loop_async_t *la;
 
-    loop_async_t *la = (loop_async_t *) handle->data;
+    la = (loop_async_t *) handle->data;
     assert_nonnull(la);
-    LOG("Timer expired, notifying other thread");
 
-    uv_work_t req;
-    bclr_sizeof(&req);
-    req.data = NULL;
-    e = uv_queue_work(&la->loop, &req, work_cb, NULL);
-    assert_eq(e, 0, "%d");
+    LOG("Timer expired, async send to thread");
 
-#if 0
+    la->async.data = la;
     /* Notify the other thread */
     e = uv_async_send(&la->async);
     assert_eq(e, 0, "%d");
-#endif
 }
 
 static void thread_entry(void *data)
 {
-    LOG("(Consumer thread will start event loop)");
+    LOG("(Consumer thread going to run event loop)");
 
     uv_loop_t *thread_loop = (uv_loop_t *) data;
     int e= uv_run(thread_loop, UV_RUN_DEFAULT);
@@ -120,10 +109,27 @@ static void thread_entry(void *data)
     LOG("(Consumer event loop done)");
 }
 
+static void work_cb(uv_work_t* req)
+{
+    assert_nonnull(req);
+    LOG("threadpoll called  %#lx", uv_thread_self());
+}
+
 static void async_cb(uv_async_t *handle)
 {
-    LOG("(Got notify from the other thread  fd: %d data: %p)\n",
-            handle->loop->backend_fd, handle->data);
+    int e;
+    loop_async_t *la;
+    uv_work_t req;
+
+    LOG("(Going to enqueue a work)");
+
+    assert_nonnull(handle);
+    la = (loop_async_t *) handle->data;
+    assert_nonnull(la);
+
+    bclr_sizeof(&req);
+    e = uv_queue_work(&la->loop, &req, work_cb, NULL);
+    assert_eq(e, 0, "%d");
 }
 
 int main(void)
@@ -138,14 +144,13 @@ int main(void)
 #endif
 
     loop_async_t la;
+    bclr_sizeof(&la);
 
     e = uv_loop_init(&la.loop);
     assert_eq(e, 0, "%d");
     LOG("thread loop fd: %d", la.loop.backend_fd);
 
-    bclr_sizeof(&la.async);
-    //e = uv_async_init(&la.loop, &la.async, async_cb);
-    e = uv_async_init(&la.loop, &la.async, NULL);
+    e = uv_async_init(&la.loop, &la.async, async_cb);
     assert_eq(e, 0, "%d");
 
     uv_thread_t thread;
