@@ -104,6 +104,7 @@ static void thread_entry(void *data)
     LOG("(Consumer thread going to run event loop)");
 
     uv_loop_t *thread_loop = (uv_loop_t *) data;
+    assert_nonnull(thread_loop);
     int e = uv_run(thread_loop, UV_RUN_DEFAULT);
     assert_eq(e, 0, "%d");
 
@@ -118,7 +119,8 @@ static void work_cb(uv_work_t* req)
 
 static void done_work_cb(uv_work_t* req, int status)
 {
-    UNUSED(req, status);
+    UNUSED(req);
+    LOG("done work called  status: %d", status);
 }
 
 static void async_cb(uv_async_t *handle)
@@ -148,6 +150,8 @@ int main(void)
     assert_eq(e, 0, "%d");
     LOG("Set stdout unbuffered");
 #endif
+
+    LOG("libuv version: %s", uv_version_string());
 
     loop_async_t la;
     bclr_sizeof(&la);
