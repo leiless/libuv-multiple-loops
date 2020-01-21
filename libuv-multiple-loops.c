@@ -25,7 +25,7 @@
 #define UNUSED(e, ...)      (void) ((void) (e), ##__VA_ARGS__)
 
 #define LOG(fmt, ...)                                       \
-    (void) printf("[thread: %#lx tid: %#lx] " fmt "\n",     \
+    (void) printf("[thread: %#lx tid: %ld] " fmt "\n",      \
         uv_thread_self(), syscall(SYS_gettid), ##__VA_ARGS__)
 
 /* Macro taken from macOS/Frameworks/Kernel/sys/cdefs.h */
@@ -138,6 +138,8 @@ static void async_cb(uv_async_t *handle)
     bclr_sizeof(&req);
     e = uv_queue_work(&la->loop, &req, work_cb, done_work_cb);
     assert_eq(e, 0, "%d");
+
+    LOG("(Work enqueued)");
 }
 
 int main(void)
