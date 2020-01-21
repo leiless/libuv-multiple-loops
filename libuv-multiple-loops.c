@@ -24,8 +24,9 @@
 
 #define UNUSED(e, ...)      (void) ((void) (e), ##__VA_ARGS__)
 
-#define LOG(fmt, ...)       \
-    (void) printf("[tid: %#lx] " fmt "\n", syscall(SYS_gettid), ##__VA_ARGS__)
+#define LOG(fmt, ...)                                       \
+    (void) printf("[thread: %#lx tid: %#lx] " fmt "\n",     \
+        uv_thread_self(), syscall(SYS_gettid), ##__VA_ARGS__)
 
 /* Macro taken from macOS/Frameworks/Kernel/sys/cdefs.h */
 #define __printflike(fmtarg, firstvararg) \
@@ -112,7 +113,12 @@ static void thread_entry(void *data)
 static void work_cb(uv_work_t* req)
 {
     assert_nonnull(req);
-    LOG("threadpoll called  %#lx", uv_thread_self());
+    LOG("<New thread from threadpool>");
+}
+
+static void done_work_cb(uv_work_t* req, int status)
+{
+    UNUSED(req, status);
 }
 
 static void async_cb(uv_async_t *handle)
@@ -128,7 +134,7 @@ static void async_cb(uv_async_t *handle)
     assert_nonnull(la);
 
     bclr_sizeof(&req);
-    e = uv_queue_work(&la->loop, &req, work_cb, NULL);
+    e = uv_queue_work(&la->loop, &req, work_cb, done_work_cb);
     assert_eq(e, 0, "%d");
 }
 
@@ -172,6 +178,7 @@ int main(void)
     LOG("Starting main loop\n");
     e = uv_run(main_loop, UV_RUN_DEFAULT);
     assert_eq(e, 0, "%d");
+    LOG("Main loop done");
 
     e = uv_thread_join(&thread);
     assert_eq(e, 0, "%d");
