@@ -21,6 +21,8 @@
 #include <pthread.h>
 #include <sys/syscall.h>
 
+#include <time.h>
+
 #include <uv.h>
 
 #define UNUSED(e, ...)      (void) ((void) (e), ##__VA_ARGS__)
@@ -115,7 +117,7 @@ static void thread_entry(void *data)
 static void work_cb(uv_work_t* req)
 {
     assert_nonnull(req);
-    LOG("<New thread from threadpool>");
+    LOG("<New thread from threadpool  rand: %ld>", random() % 100000);
 
     /* see: libuv/src/unix/thread.c */
     pthread_exit(NULL);
@@ -149,6 +151,8 @@ static void async_cb(uv_async_t *handle)
 int main(void)
 {
     int e;
+
+    srand(time(NULL) ^ getpid() ^ ((uintptr_t) &e & 0xffff00u));
 
 #ifdef DEBUG
     // see: https://stackoverflow.com/questions/35239938/should-i-set-stdout-and-stdin-to-be-unbuffered-in-c
