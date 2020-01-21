@@ -159,6 +159,10 @@ int main(void)
 
     LOG("libuv version: %s", uv_version_string());
 
+    e = setenv("UV_THREADPOOL_SIZE", "128", 1);
+    assertf(e == 0, "setenv() fail  errno: %d", errno);
+    LOG("UV_THREADPOOL_SIZE: %s", getenv("UV_THREADPOOL_SIZE"));
+
     loop_async_t la;
     bclr_sizeof(&la);
 
