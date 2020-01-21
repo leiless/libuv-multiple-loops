@@ -18,6 +18,7 @@
 #include <stdarg.h>
 
 #include <unistd.h>
+#include <pthread.h>
 #include <sys/syscall.h>
 
 #include <uv.h>
@@ -115,6 +116,9 @@ static void work_cb(uv_work_t* req)
 {
     assert_nonnull(req);
     LOG("<New thread from threadpool>");
+
+    /* see: libuv/src/unix/thread.c */
+    pthread_exit(NULL);
 }
 
 static void done_work_cb(uv_work_t* req, int status)
