@@ -18,10 +18,7 @@
 #include <stdarg.h>
 
 #include <unistd.h>
-#include <pthread.h>
 #include <sys/syscall.h>
-
-#include <time.h>
 
 #include <uv.h>
 
@@ -117,7 +114,7 @@ static void thread_entry(void *data)
 static void work_cb(uv_work_t* req)
 {
     assert_nonnull(req);
-    LOG("<New thread from threadpool  rand: %ld>", random() % 100000);
+    LOG("<New thread from threadpool>");
 }
 
 static void done_work_cb(uv_work_t* req, int status)
@@ -153,8 +150,6 @@ int main(void)
 {
     int e;
 
-    srand(time(NULL) ^ getpid() ^ ((uintptr_t) &e & 0xffff00u));
-
 #ifdef DEBUG
     // see: https://stackoverflow.com/questions/35239938/should-i-set-stdout-and-stdin-to-be-unbuffered-in-c
     e = setvbuf(stdout, NULL, _IONBF, 0);
@@ -164,7 +159,7 @@ int main(void)
 
     LOG("libuv version: %s", uv_version_string());
 
-    e = setenv("UV_THREADPOOL_SIZE", "128", 1);
+    e = setenv("UV_THREADPOOL_SIZE", "3", 1);
     assertf(e == 0, "setenv() fail  errno: %d", errno);
     LOG("UV_THREADPOOL_SIZE: %s", getenv("UV_THREADPOOL_SIZE"));
 
